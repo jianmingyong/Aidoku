@@ -81,6 +81,7 @@ actor CloudflareHandler: NSObject {
 
     private func finish() {
         guard let continuation = finishContinuation else { return }
+        shouldTimeout = true
         finishContinuation = nil
 
         proxy = nil
@@ -209,7 +210,7 @@ extension CloudflareHandler {
 
     // handle web view reload/redirect
     nonisolated func navigated(webView: WKWebView, for request: URLRequest) async {
-        let webViewCookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
+        var webViewCookies = await WKWebsiteDataStore.default().httpCookieStore.allCookies()
 
         guard let url = request.url else { return }
 
@@ -228,8 +229,17 @@ extension CloudflareHandler {
         }
 #endif
 
+        HTTPCookieStorage.shared.cookies(for: url)?.forEach { cookie in
+            LogManager.logger.log("BEFORE \(cookie.name) [\(cookie.domain)] \(cookie.expiresDate): \(cookie.value)")
+        }
+
         // check for old (expired) clearance cookie
         let oldCookie = HTTPCookieStorage.shared.cookies(for: url)?.first { $0.name == "cf_clearance" }
+
+        // remove old cookie and save new cookies for future requests
+        if let oldCookie {
+            HTTPCookieStorage.shared.deleteCookie(oldCookie)
+        }
 
         // check for clearance cookie
         let hasClearance = webViewCookies.contains(where: {
@@ -244,11 +254,12 @@ extension CloudflareHandler {
         await self.popupController?.dismiss(animated: true)
 #endif
 
-        // remove old cookie and save new cookies for future requests
-        if let oldCookie {
-            HTTPCookieStorage.shared.deleteCookie(oldCookie)
-        }
+        webViewCookies.reverse()
         HTTPCookieStorage.shared.setCookies(webViewCookies, for: url, mainDocumentURL: url)
+
+        HTTPCookieStorage.shared.cookies(for: url)?.forEach { cookie in
+            LogManager.logger.log("AFTER \(cookie.name) [\(cookie.domain)] \(cookie.expiresDate): \(cookie.value)")
+        }
 
         await self.finish()
     }
