@@ -80,8 +80,8 @@ actor CloudflareHandler: NSObject {
     }
 
     private func finish() {
-        guard let continuation = finishContinuation else { return }
         shouldTimeout = true
+        guard let continuation = finishContinuation else { return }
         finishContinuation = nil
 
         proxy = nil
@@ -249,9 +249,9 @@ extension CloudflareHandler {
         })
         guard hasClearance else { return }
 
-        await webView.removeFromSuperview()
+        // await webView.removeFromSuperview()
 #if !os(macOS)
-        await self.popupController?.dismiss(animated: true)
+        // await self.popupController?.dismiss(animated: true)
 #endif
 
         webViewCookies.reverse()
@@ -261,7 +261,7 @@ extension CloudflareHandler {
             LogManager.logger.log("AFTER \(cookie.name) [\(cookie.domain)] \(cookie.expiresDate): \(cookie.value)")
         }
 
-        await self.finish()
+        // await self.finish()
     }
 
     // handle user popover dismiss
